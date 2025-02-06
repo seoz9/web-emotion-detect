@@ -1,9 +1,126 @@
-    {% extends 'base.html' %}
-    
-    {% block container %}
 
-    {% for ism in ismlar %}
-    <h1>{{ism}}</h1>
-    {% endfor %}
-    salom
-    {% endblock %}
+
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detection - Multiple Cameras</title>
+    <style>
+        body {
+            text-align: center;
+        }
+        video, canvas {
+            margin-top: 10px;
+            border: 2px solid black;
+        }
+        select {
+            margin-top: 10px;
+        }
+        .lists {
+            list-style: none;
+            width: 500px;
+            margin: 0 auto;
+            font-weight: bold;
+        }
+        .lists li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: aquamarine;
+        }
+
+        .hidden{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Kamera orqali yuz ifodalarini aniqlang</h2>
+    <label for="cameraSelect">Kamera tanlang:</label>
+    <select id="cameraSelect"></select>
+
+    <video id="video" width="640" height="480" autoplay class="hidden"></video>
+    <br>
+    <button onclick="captureAndSend()">Rasmni olish va yuborish</button>
+    <canvas id="canvas" width="640" height="480" class="hidden"></canvas>
+
+    <hr>
+    <ul class="lists"></ul>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const listEl = document.querySelector('.lists');
+
+        // Kameralarni aniqlash va ro‘yxatini ko‘rsatish
+        navigator.mediaDevices.enumerateDevices()
+            .then(devices => {
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Kamera ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+            });
+
+        // Tanlangan kamerani ishga tushirish
+        cameraSelect.addEventListener('change', () => {
+            startVideo(cameraSelect.value);
+        });
+
+        function startVideo(deviceId) {
+            navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId } })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    console.error("Kamera ishga tushmadi:", err);
+                    alert("Kamerani ishga tushirishda muammo!");
+                });
+        }
+
+        // Dastlabki kamerani ishga tushirish
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            });
+
+        function captureAndSend() {
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'camera.jpg');
+
+                // Rasmni serverga yuborish
+                fetch('http://127.0.0.1:5000/detect_emotion', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Yuz ifodalari:", data.emotions);
+                    listEl.innerHTML = `
+                        <li><span>angry: </span> ${data.emotions['angry'].toFixed(2)}%</li>
+                        <li><span>disgust: </span> ${data.emotions['disgust'].toFixed(2)}%</li>
+                        <li><span>fear: </span> ${data.emotions['fear'].toFixed(2)}%</li>
+                        <li><span>happy: </span> ${data.emotions['happy'].toFixed(2)}%</li>
+                        <li><span>neutral: </span> ${data.emotions['neutral'].toFixed(2)}%</li>
+                        <li><span>sad: </span> ${data.emotions['sad'].toFixed(2)}%</li>
+                        <li><span>surprise: </span> ${data.emotions['surprise'].toFixed(2)}%</li>
+                    `;
+                })
+                .catch(error => {
+                    console.error("Xato yuz berdi:", error);
+                    alert("Xatolik yuz berdi: " + error);
+                });
+            }, 'image/jpeg');
+        }
+    </script>
+</body>
+</html>
+

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS  # CORS qo'shish
 import cv2
 import numpy as np
@@ -7,6 +7,9 @@ from deepface import DeepFace
 app = Flask(__name__)
 CORS(app)  # CORS ni yoqish
 
+@app.route('/')
+def index():
+    return render_template('index.html')
 @app.route('/detect_emotion', methods=['POST'])
 def detect_emotion():
     if 'image' not in request.files:
